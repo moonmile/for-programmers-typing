@@ -18,6 +18,7 @@ export default function TypingGame() {
   const [gameStarted, setGameStarted] = useState(false)
   const [gameEnded, setGameEnded] = useState(false)
   const [timeLeft, setTimeLeft] = useState(60) // 60秒
+  const [gameStartTime, setGameStartTime] = useState<number | null>(null)
   const [currentCharIndex, setCurrentCharIndex] = useState(0)
   const [stats, setStats] = useState<GameStats>({
     wpm: 0,
@@ -29,7 +30,7 @@ export default function TypingGame() {
   })
   
   const inputRef = useRef<HTMLInputElement>(null)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ゲーム初期化
   useEffect(() => {
@@ -41,13 +42,22 @@ export default function TypingGame() {
     setGameEnded(true)
     setGameStarted(false)
     
-    // 最終統計を計算
-    const timeElapsed = (60 - timeLeft) / 60
-    const wordsTyped = stats.correctChars / 5 // 平均的な単語の長さを5文字として計算
-    const finalWpm = timeElapsed > 0 ? Math.round(wordsTyped / timeElapsed) : 0
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
     
-    setStats(prev => ({ ...prev, wpm: finalWpm }))
-  }, [timeLeft, stats.correctChars])
+    // 最終統計を計算（正確な経過時間を使用）
+    if (gameStartTime) {
+      const now = Date.now()
+      const timeElapsedMs = now - gameStartTime
+      const timeElapsedMinutes = timeElapsedMs / (1000 * 60)
+      const wordsTyped = stats.correctChars / 5 // 平均的な単語の長さを5文字として計算
+      const finalWpm = timeElapsedMinutes > 0 ? Math.round(wordsTyped / timeElapsedMinutes) : 0
+      
+      setStats(prev => ({ ...prev, wpm: finalWpm }))
+    }
+  }, [gameStartTime, stats.correctChars])
 
   // 文章スキップ機能（ペナルティ付き）
   const skipCurrentText = useCallback(() => {
@@ -68,26 +78,34 @@ export default function TypingGame() {
     }))
   }, [gameStarted, gameEnded])
 
-  // タイマー処理
+  // タイマー処理（計算ベースの正確な時間管理）
   useEffect(() => {
-    if (gameStarted && !gameEnded && timeLeft > 0) {
-      timerRef.current = setTimeout(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            endGame()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
+    if (gameStarted && !gameEnded && gameStartTime) {
+      timerRef.current = setInterval(() => {
+        const now = Date.now()
+        const elapsed = Math.floor((now - gameStartTime) / 1000)
+        const remaining = Math.max(0, 60 - elapsed)
+        
+        setTimeLeft(remaining)
+        
+        if (remaining <= 0) {
+          endGame()
+        }
+      }, 100) // より頻繁にチェック（100ms間隔）
+    } else {
+      // ゲームが開始されていないか終了している場合、タイマーをクリア
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
     }
     
     return () => {
       if (timerRef.current) {
-        clearTimeout(timerRef.current)
+        clearInterval(timerRef.current)
       }
     }
-  }, [gameStarted, gameEnded, timeLeft, endGame])
+  }, [gameStarted, gameEnded, gameStartTime, endGame])
 
   // グローバルESCキーリスナー
   useEffect(() => {
@@ -109,9 +127,11 @@ export default function TypingGame() {
 
   // ゲーム開始
   const startGame = () => {
+    const now = Date.now()
     setGameStarted(true)
     setGameEnded(false)
     setTimeLeft(60)
+    setGameStartTime(now)
     setUserInput('')
     setCurrentCharIndex(0)
     setStats({ wpm: 0, accuracy: 100, correctChars: 0, totalChars: 0, errors: 0, skips: 0 })
@@ -166,12 +186,17 @@ export default function TypingGame() {
       setUserInput(value)
     }
 
-    // リアルタイムWPM計算
-    const timeElapsed = (60 - timeLeft) / 60
-    if (timeElapsed > 0) {
-      const wordsTyped = stats.correctChars / 5
-      const currentWpm = Math.round(wordsTyped / timeElapsed)
-      setStats(prev => ({ ...prev, wpm: currentWpm }))
+    // リアルタイムWPM計算（正確な経過時間を使用）
+    if (gameStartTime) {
+      const now = Date.now()
+      const timeElapsedMs = now - gameStartTime
+      const timeElapsedMinutes = timeElapsedMs / (1000 * 60)
+      
+      if (timeElapsedMinutes > 0) {
+        const wordsTyped = stats.correctChars / 5
+        const currentWpm = Math.round(wordsTyped / timeElapsedMinutes)
+        setStats(prev => ({ ...prev, wpm: currentWpm }))
+      }
     }
   }
 
