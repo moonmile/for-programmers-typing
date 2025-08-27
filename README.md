@@ -9,3 +9,12 @@
 - 単語単位ではなく文字単位でキーのチェック判定をする
 - 制限時間内のタイピングを競う
 
+## 開発環境
+
+vscode + GitHub Copilot + Claude Sonnet 4 で開発しました。
+基本的に readme.md に書いてある内容を実装してもらいました。
+
+- 使用言語: TypeScript
+- フレームワーク: React
+- スタイル: Tailwind CSS
+
