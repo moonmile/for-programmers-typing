@@ -140,19 +140,37 @@ export const codeSnippets = [
 ]
 
 // ランダムな文章を生成する関数
+let lastAbbreviation: { short: string; full: string } | null = null
+let shouldShowFull = false
+
 export function getRandomText(): string {
   const textTypes = ['term', 'abbreviation', 'code']
   const randomType = textTypes[Math.floor(Math.random() * textTypes.length)]
   
   switch (randomType) {
     case 'term':
+      lastAbbreviation = null
+      shouldShowFull = false
       return programmingTerms[Math.floor(Math.random() * programmingTerms.length)]
     
     case 'abbreviation':
+      // 前回abbreviationのshortを出していた場合は、そのfullを出す
+      if (lastAbbreviation && shouldShowFull) {
+        const result = lastAbbreviation.full
+        lastAbbreviation = null
+        shouldShowFull = false
+        return result
+      }
+      
+      // 新しいabbreviationのshortを出す
       const abbr = abbreviations[Math.floor(Math.random() * abbreviations.length)]
-      return Math.random() > 0.5 ? abbr.short : abbr.full
+      lastAbbreviation = abbr
+      shouldShowFull = true
+      return abbr.short
     
     case 'code':
+      lastAbbreviation = null
+      shouldShowFull = false
       return codeSnippets[Math.floor(Math.random() * codeSnippets.length)]
     
     default:
